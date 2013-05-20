@@ -1,0 +1,191 @@
+#!/bin/bash -i
+
+# Clean and unset vars. We now also use -i above.
+giver=""
+user=""
+messagebody=""
+SUBJECT=""
+EMAIL=""
+tmpdir=""
+parentdir=""
+dir2tar=""
+current_dir=""
+
+# Implementation Definitions
+SPOOLAREA=/global/scratch/gt
+
+# Get Giver's Name
+giver=`/usr/bin/whoami`
+
+# Catch odd directories
+current_dir=`/bin/pwd`
+
+while getopts ":u:" opt; do
+  case $opt in
+    u)
+      user="$OPTARG"
+      ;;
+    \?)
+      echo ""
+      echo "Usage: give -u <username> <files>"
+      echo " -u is a required option"
+      echo ""
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument."
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$user" ] 
+then
+    echo ""
+    echo "Usage: give -u <username> <files>"
+    echo " -u is a required option"
+    echo ""
+    exit 1
+fi
+
+# Check For Valid User
+temp=`/usr/bin/id "$user" 2>&1`
+if [[ $temp == *No\ such* ]]
+then
+  echo "$user" does not exist
+  exit 1
+fi
+
+shift $(( OPTIND-1 ))
+
+if [ -n "$1" ]
+then
+
+# Make sure the giveandtake directory is created
+# and set perms on giver/receiver gt directory here.
+
+  /bin/mkdir -p "$SPOOLAREA/$giver/$user"
+  /usr/bin/setfacl -R -d -m u:$user:rwx,g::---,m::rwx "$SPOOLAREA/$giver/$user"
+  /usr/bin/setfacl -R -m u:$user:rwx,g::---,m::rwx "$SPOOLAREA/$giver/$user"
+
+  for var in "$@"
+  do
+
+# Check Size and Number Limitation??
+# Not implemented currently. Doing du on a directory
+# takes time...
+
+# Check sanity of $var
+    if [ -d "$var" ]; then
+      echo ""
+    elif [ -a "$var" ]; then
+      echo ""
+    else
+      echo "$var does not exist"
+      exit 1
+    fi
+
+    my_var="$var"
+
+# Copy file over. Create .tar archive if directory.
+
+# Is this a directory?
+    if [ -d "$var" ]; then
+      # Create .tar from directory
+      my_var=${var%/}.tar
+      my_var=${my_var##*/}
+      tmpdir=${var%/}
+      parentdir=`dirname "$tmpdir"`
+      dir2tar=${tmpdir##*/}
+      echo "Creating tar archive from directory $var"
+      /bin/cd "$parentdir"
+      tar -cvf "$SPOOLAREA/$giver/$user/$my_var" "$dir2tar"
+      if [ $? -eq 0 ] 
+      then
+        messagebody="$messagebody \n $my_var"
+        /usr/bin/setfacl -R -d -m u:$user:rwx $SPOOLAREA/$giver/$user/$my_var
+        /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw $SPOOLAREA/$giver/$user/$my_var
+        #echo "`/bin/date` - gave $user `readlink -f $my_var`" >> "$HOME/.filesgiven"
+        /bin/logger "`/bin/date` - $giver gave $user `readlink -f $my_var`"
+        echo "Gave $my_var."
+      else 
+        echo "Failed to give $my_var. Removing any incomplete files."
+        # Remove incomplete give
+        rm "$SPOOLAREA/$giver/$user/$my_var"
+      fi
+      cd "$current_dir"
+      echo " "
+# This is a file not a directory
+    else
+      if [ -a "$SPOOLAREA/$giver/$user/$var" ]
+      then
+        echo "File $var already exists at destination. Overwrite?"
+        select yn in "Yes" "No"; do
+          case $yn in
+            Yes ) 
+              /usr/bin/rsync --progress --log-format="Giving $var" "$var" "$SPOOLAREA/$giver/$user"
+              if [ $? -eq 0 ] 
+              then
+                messagebody="$messagebody \n $my_var" 
+                /usr/bin/setfacl -R -d -m u:$user:rwx "$SPOOLAREA/$giver/$user/$my_var"
+                /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw "$SPOOLAREA/$giver/$user/$my_var"
+                #echo "`/bin/date` - gave $user `readlink -f $var`" >> "$HOME/.filesgiven"
+                /bin/logger "`/bin/date` - $giver gave $user `readlink -f $var`"
+                echo "Gave $var"
+              else 
+                echo "Failed to give $var. Removing incomplete file."
+                # Remove incomplete give
+                rm "$SPOOLAREA/$giver/$user/$my_var"
+              fi
+              echo " " 
+              break;;
+            No ) echo " " ; break;;
+          esac
+        done
+      else
+        /usr/bin/rsync --progress --log-format="Giving $var" "$var" "$SPOOLAREA/$giver/$user"
+        if [ $? -eq 0 ] 
+        then
+          messagebody="$messagebody \n $my_var"
+          /usr/bin/setfacl -R -d -m u:$user:rwx "$SPOOLAREA/$giver/$user/$my_var"
+          /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw "$SPOOLAREA/$giver/$user/$my_var"
+          echo "Gave $var"
+          #echo "`/bin/date` - gave $user `readlink -f $var`" >> "$HOME/.filesgiven"
+          /bin/logger "`/bin/date` - $giver gave $user `readlink -f $var`"
+        else 
+          echo "Failed to give $var. Removing incomplete file."
+          # Remove incomplete give
+          rm "$SPOOLAREA/$giver/$user/$my_var"
+        fi
+        echo " "
+      fi
+    fi
+
+  done  
+
+  if [ -z "$messagebody" ]
+  then
+    echo "No files given"
+  else
+    messagebody="Shared Files: $messagebody"
+    messagebody="$messagebody \n\n Retrieve individual files using the take command (available only from the giveandtake module on Carver presently):"
+    # For security we no longer suggests users cut and paste from email
+    #messagebody="$messagebody \n\n % take -u $giver <filename>"
+    #messagebody="$messagebody \n\n Retrieve all files given by $giver using:"
+    #messagebody="$messagebody \n\n % take -u $giver -a"
+
+# Email user
+
+# EMAIL subject
+    SUBJECT="$giver has given you a file at NERSC."
+# Email To ?
+    EMAIL="$user@nersc.gov"
+# send an email using /bin/mail
+    echo -e "$messagebody" | /bin/mail -s "$SUBJECT" "$EMAIL"
+  fi
+
+else
+  echo "No file arguments given."
+fi
+
+exit 0

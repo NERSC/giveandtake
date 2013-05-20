@@ -1,0 +1,163 @@
+#!/bin/bash -i
+
+# Sanitize environment. Shouldnt be needed with -i
+
+destfoler=""
+giver=""
+temp=""
+allflag=""
+current_dir=""
+user=""
+giver_dir=""
+var=""
+owner=""
+
+# Implementation Definitions
+SPOOLAREA=/global/scratch/gt
+
+# Get user's Name
+user=`/usr/bin/whoami`
+current_dir=`/bin/pwd`
+destfolder="$current_dir"
+
+allflag="no"
+
+while getopts ":u:d:a" opt; do
+  case $opt in
+    u)
+      giver="$OPTARG"
+      ;;
+    d)
+      destfolder="$OPTARG"
+      if [ ! -d $destfolder ]; then
+        echo "$destfolder not a directory"
+        exit 1
+      fi
+      ;;
+    a)
+      allflag="yes"
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument."
+      exit 1
+      ;;
+  esac
+done
+
+echo ""
+if [ -z "$giver" ] 
+then
+  echo "Usage: "
+  echo "Take one file from user:  take -u <user> -d <destination> <files>"
+  echo "Take all files from user: take -u <user> -d <destination> -a"
+  echo "-d is an optional flag"
+  echo ""
+
+# This might be slow
+  for giver_dir in "$SPOOLAREA"/*/"$user"
+  do
+    giver=${giver_dir%/*}
+    giver=${giver##*/}
+    if [ "$(ls -A $giver_dir 2> /dev/null)" ]; then
+      echo "Files available to you from $giver:"
+      cd "$giver_dir"
+      /usr/bin/du -sh --time *
+      cd "$current_dir"
+      echo ""
+    fi
+  done
+else
+  shift $(( OPTIND-1 ))
+
+# Check For Valid Giver
+  temp=`/usr/bin/id "$giver" 2>&1`
+  if [[ "$temp" == *No\ such* ]]
+  then
+    echo "$giver doesn't exist"
+    exit 1
+  fi
+
+  if [ "$allflag" == "yes" ]
+  then
+    if [ "$(ls -A $SPOOLAREA/$giver/$user/ 2> /dev/null)" ]; then
+      cd "$destfolder"
+      for var in "$SPOOLAREA/$giver/$user/"*
+      do
+        owner=`stat -c %U $var`
+        if [ "$owner" != "$giver" ] 
+        then
+          echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
+          exit 1
+        fi
+        if [ -a ${var##*/} ]
+        then
+          echo "File ${var##*/} already exists at destination. Overwrite?"
+          select yn in "Yes" "No"; do
+            case $yn in
+              Yes ) /usr/bin/rsync --progress --remove-sent-files --no-p --no-g --chmod=ugo=rwX --log-format="Taking ${var##*/}" "$var" . ; echo "Took ${var##*/}" ; echo ""; break;;
+              No ) break;;
+            esac
+          done
+        else
+          /usr/bin/rsync --progress --remove-sent-files --no-p --no-g --chmod=ugo=rwX --log-format="Taking ${var##*/}" "$var" . 
+          echo "Took ${var##*/}"
+          /bin/logger "$user took ${var##*/}"
+          echo ""
+        fi
+      done
+      cd "$current_dir"
+   else
+    echo "No files available from $giver"
+    echo ""
+   fi
+  else
+    if [ -n "$1" ]
+    then
+      cd $destfolder
+      for var in "$@"
+      do
+        owner=`stat -c %U "$SPOOLAREA/$giver/$user/$var"`
+        if [ "$owner" != "$giver" ] 
+        then
+          echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
+          exit 1
+        fi
+        if [ -a "$SPOOLAREA/$giver/$user/$var" ] 
+        then
+          if [ -a $var ]
+          then
+            echo "File $var already exists at destination. Overwrite?"
+            select yn in "Yes" "No"; do
+              case $yn in
+                Yes ) /usr/bin/rsync --progress --log-format="Taking $var" --no-p --no-g --chmod=ugo=rwX --remove-sent-files "$SPOOLAREA/$giver/$user/$var" . ; echo "Took $var" ; echo ""; break;;
+                No ) break;;
+              esac
+            done
+          else
+            /usr/bin/rsync --progress --remove-sent-files --log-format="Taking $var" --no-p --no-g --chmod=ugo=rwX "$SPOOLAREA/$giver/$user/$var" . 
+            echo "Took $var"
+            /bin/logger "$user took $var"
+            echo ""
+          fi
+        else
+          echo "No file $var available from $giver" 
+        fi
+      done
+      cd $current_dir
+    else
+      giver_dir="$SPOOLAREA/$giver/$user"
+      if [ "$(ls -A $giver_dir 2> /dev/null)" ]; then
+        echo "Files available from $giver:"
+        cd "$giver_dir"
+        /usr/bin/du -sh --time *
+        cd $current_dir
+        echo ""
+      else
+        echo "No files available from $giver"
+        echo ""
+      fi
+    fi
+  fi
+fi
+
+exit 0
