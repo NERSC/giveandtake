@@ -12,6 +12,7 @@ dir2tar=""
 current_dir=""
 PATH=""
 LD_LIBRARY_PATH=""
+unset IFS
 
 # Implementation Definitions
 SPOOLAREA=/global/scratch/gt
