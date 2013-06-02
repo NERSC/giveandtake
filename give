@@ -105,7 +105,7 @@ then
         messagebody="$messagebody \n $my_var"
         /usr/bin/setfacl -R -d -m u:$user:rwx $SPOOLAREA/$giver/$user/$my_var
         /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw $SPOOLAREA/$giver/$user/$my_var
-        #echo "`/bin/date` - gave $user `readlink -f $my_var`" >> "$HOME/.filesgiven"
+        echo "`/bin/date` - gave $user `readlink -f $my_var`" >> "~/.filesgiven"
         /bin/logger "`/bin/date` - $giver gave $user `readlink -f $my_var`"
         echo "Gave $my_var."
       else 
@@ -129,7 +129,7 @@ then
                 messagebody="$messagebody \n $my_var" 
                 /usr/bin/setfacl -R -d -m u:$user:rwx "$SPOOLAREA/$giver/$user/$my_var"
                 /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw "$SPOOLAREA/$giver/$user/$my_var"
-                #echo "`/bin/date` - gave $user `readlink -f $var`" >> "$HOME/.filesgiven"
+                echo "`/bin/date` - gave $user `readlink -f $var`" >> "~/.filesgiven"
                 /bin/logger "`/bin/date` - $giver gave $user `readlink -f $var`"
                 echo "Gave $var"
               else 
@@ -150,7 +150,7 @@ then
           /usr/bin/setfacl -R -d -m u:$user:rwx "$SPOOLAREA/$giver/$user/$my_var"
           /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw "$SPOOLAREA/$giver/$user/$my_var"
           echo "Gave $var"
-          #echo "`/bin/date` - gave $user `readlink -f $var`" >> "$HOME/.filesgiven"
+          echo "`/bin/date` - gave $user `readlink -f $var`" >> "~/.filesgiven"
           /bin/logger "`/bin/date` - $giver gave $user `readlink -f $var`"
         else 
           echo "Failed to give $var. Removing incomplete file."
