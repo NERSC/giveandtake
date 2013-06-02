@@ -11,6 +11,8 @@ user=""
 giver_dir=""
 var=""
 owner=""
+PATH=""
+LD_LIBRARY_PATH=""
 
 # Implementation Definitions
 SPOOLAREA=/global/scratch/gt
@@ -58,7 +60,7 @@ then
   do
     giver=${giver_dir%/*}
     giver=${giver##*/}
-    if [ "$(ls -A $giver_dir 2> /dev/null)" ]; then
+    if [ "$(/bin/ls -A $giver_dir 2> /dev/null)" ]; then
       echo "Files available to you from $giver:"
       cd "$giver_dir"
       /usr/bin/du -sh --time *
@@ -79,11 +81,11 @@ else
 
   if [ "$allflag" == "yes" ]
   then
-    if [ "$(ls -A $SPOOLAREA/$giver/$user/ 2> /dev/null)" ]; then
+    if [ "$(/bin/ls -A $SPOOLAREA/$giver/$user/ 2> /dev/null)" ]; then
       cd "$destfolder"
       for var in "$SPOOLAREA/$giver/$user/"*
       do
-        owner=`stat -c %U $var`
+        owner=`/usr/bin/stat -c %U $var`
         if [ "$owner" != "$giver" ] 
         then
           echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
@@ -116,7 +118,7 @@ else
       cd $destfolder
       for var in "$@"
       do
-        owner=`stat -c %U "$SPOOLAREA/$giver/$user/$var"`
+        owner=`/usr/bin/stat -c %U "$SPOOLAREA/$giver/$user/$var"`
         if [ "$owner" != "$giver" ] 
         then
           echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
@@ -146,7 +148,7 @@ else
       cd $current_dir
     else
       giver_dir="$SPOOLAREA/$giver/$user"
-      if [ "$(ls -A $giver_dir 2> /dev/null)" ]; then
+      if [ "$(/bin/ls -A $giver_dir 2> /dev/null)" ]; then
         echo "Files available from $giver:"
         cd "$giver_dir"
         /usr/bin/du -sh --time *

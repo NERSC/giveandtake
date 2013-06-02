@@ -10,6 +10,8 @@ tmpdir=""
 parentdir=""
 dir2tar=""
 current_dir=""
+PATH=""
+LD_LIBRARY_PATH=""
 
 # Implementation Definitions
 SPOOLAREA=/global/scratch/gt
@@ -105,8 +107,8 @@ then
         messagebody="$messagebody \n $my_var"
         /usr/bin/setfacl -R -d -m u:$user:rwx $SPOOLAREA/$giver/$user/$my_var
         /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw $SPOOLAREA/$giver/$user/$my_var
-        echo "`/bin/date` - gave $user `readlink -f $my_var`" >> "~/.filesgiven"
-        /bin/logger "`/bin/date` - $giver gave $user `readlink -f $my_var`"
+        echo "`/bin/date` - gave $user `/usr/bin/readlink -f $my_var`" >> ~/.filesgiven
+        /bin/logger "`/bin/date` - $giver gave $user `/usr/bin/readlink -f $my_var`"
         echo "Gave $my_var."
       else 
         echo "Failed to give $my_var. Removing any incomplete files."
@@ -129,8 +131,8 @@ then
                 messagebody="$messagebody \n $my_var" 
                 /usr/bin/setfacl -R -d -m u:$user:rwx "$SPOOLAREA/$giver/$user/$my_var"
                 /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw "$SPOOLAREA/$giver/$user/$my_var"
-                echo "`/bin/date` - gave $user `readlink -f $var`" >> "~/.filesgiven"
-                /bin/logger "`/bin/date` - $giver gave $user `readlink -f $var`"
+                echo "`/bin/date` - gave $user `/usr/bin/readlink -f $var`" >> ~/.filesgiven
+                /bin/logger "`/bin/date` - $giver gave $user `/usr/bin/readlink -f $var`"
                 echo "Gave $var"
               else 
                 echo "Failed to give $var. Removing incomplete file."
@@ -150,8 +152,8 @@ then
           /usr/bin/setfacl -R -d -m u:$user:rwx "$SPOOLAREA/$giver/$user/$my_var"
           /usr/bin/setfacl -R -m u:$user:rw,g::---,m::rw "$SPOOLAREA/$giver/$user/$my_var"
           echo "Gave $var"
-          echo "`/bin/date` - gave $user `readlink -f $var`" >> "~/.filesgiven"
-          /bin/logger "`/bin/date` - $giver gave $user `readlink -f $var`"
+          echo "`/bin/date` - gave $user `/usr/bin/readlink -f $var`" >> ~/.filesgiven
+          /bin/logger "`/bin/date` - $giver gave $user `/usr/bin/readlink -f $var`"
         else 
           echo "Failed to give $var. Removing incomplete file."
           # Remove incomplete give
