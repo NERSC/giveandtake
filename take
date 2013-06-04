@@ -56,6 +56,7 @@ then
   echo "-d is an optional flag"
   echo ""
 
+### Consider making this optional - SPC 
 # This might be slow
   for giver_dir in "$SPOOLAREA"/*/"$user"
   do
@@ -72,6 +73,7 @@ then
 else
   shift $(( OPTIND-1 ))
 
+### Check for error code - SPC
 # Check For Valid Giver
   temp=`/usr/bin/id "$giver" 2>&1`
   if [[ "$temp" == *No\ such* ]]
@@ -92,6 +94,7 @@ else
           echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
           exit 1
         fi
+        ### Do we really want remove-sent-files? Maybe let the purge policy handle this -SPC
         if [ -a ${var##*/} ]
         then
           echo "File ${var##*/} already exists at destination. Overwrite?"
