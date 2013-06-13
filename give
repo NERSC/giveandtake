@@ -51,11 +51,9 @@ then
     exit 1
 fi
 
-### May not be cross platform. Consider checking error code? SPC
 # Check For Valid User
 temp=`/usr/bin/id "$user" 2>&1`
-if [[ $temp == *No\ such* ]]
-then
+if [ $? -ne 0 ]; then
   echo "$user" does not exist
   exit 1
 fi
@@ -65,7 +63,6 @@ shift $(( OPTIND-1 ))
 if [ -n "$1" ]
 then
 
-### This looks ok but we should double check what the perms actually are - SPC
 # Make sure the giveandtake directory is created
 # and set perms on giver/receiver gt directory here.
 
@@ -94,8 +91,10 @@ then
 
 # Copy file over. Create .tar archive if directory.
 
-### My bash foo - is a little rusty - could you clarify what ${var%/} and ${my_var##*/} do - SPC
-# Is this a directory?
+# Below ${var%/} deletes a trailing slash from $var
+# ${my_var##*/} deletes longest match of "*/" from front $var (i.e. deletes the path)
+
+# Check, Is this a directory?
     if [ -d "$var" ]; then
       # Create .tar from directory
       my_var=${var%/}.tar
