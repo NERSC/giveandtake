@@ -6,6 +6,7 @@ destfoler=""
 giver=""
 temp=""
 allflag=""
+listflag=""
 current_dir=""
 user=""
 giver_dir=""
@@ -24,8 +25,9 @@ current_dir=`/bin/pwd`
 destfolder="$current_dir"
 
 allflag="no"
+listflag="no"
 
-while getopts ":u:d:a" opt; do
+while getopts ":u:d:a:l" opt; do
   case $opt in
     u)
       giver="$OPTARG"
@@ -39,6 +41,9 @@ while getopts ":u:d:a" opt; do
       ;;
     a)
       allflag="yes"
+      ;;
+    l)
+      listflag="yes"
       ;;
     :)
       echo "Option -$OPTARG requires an argument."
@@ -55,30 +60,32 @@ then
   echo "Take all files from user: take -u <user> -d <destination> -a"
   echo "-d is an optional flag"
   echo ""
+  echo "Use -l without -u to list available files from all users."
+  echo ""
 
-### Consider making this optional - SPC 
-# This might be slow
-  for giver_dir in "$SPOOLAREA"/*/"$user"
-  do
-    giver=${giver_dir%/*}
-    giver=${giver##*/}
-    if [ "$(/bin/ls -A $giver_dir 2> /dev/null)" ]; then
-      echo "Files available to you from $giver:"
-      cd "$giver_dir"
-      /usr/bin/du -sh --time *
-      cd "$current_dir"
-      echo ""
-    fi
-  done
+# This might be slow. So it is optional
+  if [ "$listflag" == "yes" ]
+  then
+    for giver_dir in "$SPOOLAREA"/*/"$user"
+    do
+      giver=${giver_dir%/*}
+      giver=${giver##*/}
+      if [ "$(/bin/ls -A $giver_dir 2> /dev/null)" ]; then
+        echo "Files available to you from $giver:"
+        cd "$giver_dir"
+        /usr/bin/du -sh --time *
+        cd "$current_dir"
+        echo ""
+      fi
+    done
+  fi
 else
   shift $(( OPTIND-1 ))
 
-### Check for error code - SPC
 # Check For Valid Giver
   temp=`/usr/bin/id "$giver" 2>&1`
-  if [[ "$temp" == *No\ such* ]]
-  then
-    echo "$giver doesn't exist"
+  if [ $? -ne 0 ]; then
+    echo "$giver does not exist"
     exit 1
   fi
 
@@ -94,7 +101,7 @@ else
           echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
           exit 1
         fi
-        ### Do we really want remove-sent-files? Maybe let the purge policy handle this -SPC
+        # We remove the file once transfer is complete. We could in the future let purger handle this.
         if [ -a ${var##*/} ]
         then
           echo "File ${var##*/} already exists at destination. Overwrite?"
