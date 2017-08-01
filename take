@@ -1,5 +1,8 @@
 #!/bin/bash -i
 
+#echo "Give and Take is migrating due to Global Scratch Retirement. We'll be back soon"
+#exit 1
+
 # Sanitize environment. Shouldnt be needed with -i
 
 destfoler=""
@@ -17,7 +20,17 @@ LD_LIBRARY_PATH=""
 unset IFS
 
 # Implementation Definitions
-SPOOLAREA=/global/scratch/gt
+#SPOOLAREA=/global/scratch2/gt
+SPOOLAREA=/project/projectdirs/gt
+
+# Get Hostname
+myhost=`/usr/common/usg/bin/nersc_host`
+#
+if [ "$myhost" == "genepool" ]; then
+  mylogger="/usr/bin/logger"
+else
+  mylogger="/bin/logger"
+fi
 
 # Get user's Name
 user=`/usr/bin/whoami`
@@ -27,7 +40,7 @@ destfolder="$current_dir"
 allflag="no"
 listflag="no"
 
-while getopts ":u:d:a:l" opt; do
+while getopts ":u:d:al" opt; do
   case $opt in
     u)
       giver="$OPTARG"
@@ -45,6 +58,15 @@ while getopts ":u:d:a:l" opt; do
     l)
       listflag="yes"
       ;;
+    \?)
+      echo "Usage: "
+      echo "See available files from user: take -u <user>"
+      echo "Take one file from user:  take -u <user> -d <destination> <files>"
+      echo "Take all files from user: take -u <user> -d <destination> -a"
+      echo "-d is an optional flag"
+      echo ""
+      exit 1
+      ;;
     :)
       echo "Option -$OPTARG requires an argument."
       exit 1
@@ -55,17 +77,21 @@ done
 echo ""
 if [ -z "$giver" ] 
 then
-  echo "Usage: "
-  echo "Take one file from user:  take -u <user> -d <destination> <files>"
-  echo "Take all files from user: take -u <user> -d <destination> -a"
-  echo "-d is an optional flag"
-  echo ""
-  echo "Use -l without -u to list available files from all users."
-  echo ""
+  if [ "$listflag" != "yes" ]
+  then
+    echo "Usage: "
+    echo "See available files from user: take -u <user>"
+    echo "Take one file from user:  take -u <user> -d <destination> <files>"
+    echo "Take all files from user: take -u <user> -d <destination> -a"
+    echo "-d is an optional flag"
+    echo ""
+  fi
 
 # This might be slow. So it is optional
   if [ "$listflag" == "yes" ]
   then
+    echo "Checking for available files. This may take a minute."
+    filesavail="none"
     for giver_dir in "$SPOOLAREA"/*/"$user"
     do
       giver=${giver_dir%/*}
@@ -76,15 +102,27 @@ then
         /usr/bin/du -sh --time *
         cd "$current_dir"
         echo ""
+        filesavail="some"
       fi
     done
+    #echo "done check"
+    if [ "$filesavail" == "none" ]
+    then
+      echo "No files available to you."
+    fi
   fi
 else
   shift $(( OPTIND-1 ))
 
 # Check For Valid Giver
-  temp=`/usr/bin/id "$giver" 2>&1`
-  if [ $? -ne 0 ]; then
+# This is checked implicitly below that giver directory exists
+#  temp=`/usr/bin/id "$giver" 2>&1`
+#  if [ $? -ne 0 ]; then
+#    echo "$giver does not exist"
+#    exit 1
+#  fi
+
+  if [ ! -d "$SPOOLAREA/$giver" ]; then
     echo "$giver does not exist"
     exit 1
   fi
@@ -96,7 +134,7 @@ else
       for var in "$SPOOLAREA/$giver/$user/"*
       do
         owner=`/usr/bin/stat -c %U $var`
-        if [ "$owner" != "$giver" ] 
+        if [ "$owner" != "$giver" -a "$giver" != "ftpup" ] 
         then
           echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
           exit 1
@@ -114,7 +152,7 @@ else
         else
           /usr/bin/rsync --progress --remove-sent-files --no-p --no-g --chmod=ugo=rwX --log-format="Taking ${var##*/}" "$var" . 
           echo "Took ${var##*/}"
-          /bin/logger "$user took ${var##*/}"
+          $mylogger "$user took ${var##*/}"
           echo ""
         fi
       done
@@ -129,15 +167,15 @@ else
       cd $destfolder
       for var in "$@"
       do
-        owner=`/usr/bin/stat -c %U "$SPOOLAREA/$giver/$user/$var"`
-        if [ "$owner" != "$giver" ] 
-        then
-          echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
-          exit 1
-        fi
         if [ -a "$SPOOLAREA/$giver/$user/$var" ] 
         then
-          if [ -a $var ]
+          owner=`/usr/bin/stat -c %U "$SPOOLAREA/$giver/$user/$var"`
+          if [ "$owner" != "$giver" -a "$giver" != "ftpup" ]
+          then
+            echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
+            exit 1
+          fi
+          if [ -a "$var" ]
           then
             echo "File $var already exists at destination. Overwrite?"
             select yn in "Yes" "No"; do
@@ -149,7 +187,7 @@ else
           else
             /usr/bin/rsync --progress --remove-sent-files --log-format="Taking $var" --no-p --no-g --chmod=ugo=rwX "$SPOOLAREA/$giver/$user/$var" . 
             echo "Took $var"
-            /bin/logger "$user took $var"
+            $mylogger "$user took $var"
             echo ""
           fi
         else
