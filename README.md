@@ -3,7 +3,6 @@ giveandtake
 
 Give and Take Command at NERSC
 
-
 Versions in repository:
 
 give & take: Original versions (Aug 1, 2017)
