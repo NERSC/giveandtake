@@ -1,11 +1,17 @@
 #!/bin/bash -i
 
-# Give is a command to share files with other users. It requires a spool area.
-#
+#echo "Give and Take is migrating due to Global Scratch Retirement. We'll be back soon"
+#exit 1
+
+# Administrative variables: userlimit per give and permissions group blacklist
+userlimit=5
 
 # Clean and unset vars. We now also use -i above.
 giver=""
 user=""
+userlist=()
+tempuserlist=()
+emailmessage=""
 messagebody=""
 SUBJECT=""
 EMAIL=""
@@ -17,6 +23,9 @@ PATH=""
 LD_LIBRARY_PATH=""
 unset IFS
 my_date=`/bin/date +%s`
+quietflag="false"
+messageflag="false"
+batchflag="no"
 
 # Implementation Definitions
 #SPOOLAREA=/global/scratch2/gt
@@ -45,24 +54,38 @@ if [ ! -d "$SPOOLAREA/$giver" ]; then
   exit 1
 fi
 
-
 # Catch odd directories
 current_dir=`/bin/pwd`
 
-batchflag="no"
-
-while getopts ":u:b" opt; do
+while getopts ":u:m:bq" opt; do
   case $opt in
     u)
-      user="$OPTARG"
+      userlist+=("$OPTARG")
+      ;;
+    m)
+      messageflag="true"
+      emailmessage="$OPTARG"
       ;;
     b)
       batchflag="yes"
       ;;
+    q)
+      quietflag="true"
+      ;;
     \?)
       echo ""
-      echo "Usage: give -u <username> <files>"
+      echo "Usage, simple: give -u <username> {-u <username> ... } <files>"
       echo " -u is a required option"
+      echo "    Can be used multiple times to give the <files> to up to $userlimit users."
+      echo ""
+      echo ""
+      echo "Usage, verbose: give {-q -b -m \"<message>\"} -u <username> {-u <username> ... } <files>"
+      echo " -q, -m and -b are optional flags"
+      echo ""
+      echo " -q: Quiet mode. Will not send an email to the recipient. Cannot be used with -m."
+      echo " -m: Message. Will add a message to the give email. Use '\n' to start a new line. Cannot be used with -q."
+      echo " -b: Batch mode. Automatically appends time/date stamp to files with the same name as any previous, unretrieved give."
+      echo "       Without -b: Will query overwrite or abort."
       echo ""
       exit 1
       ;;
@@ -73,23 +96,85 @@ while getopts ":u:b" opt; do
   esac
 done
 
-if [ -z "$user" ] 
+# Check if userlist is empty
+if [ ${#userlist[@]} -eq 0 ] 
 then
-    echo ""
-    echo "Usage: give -u <username> <files>"
-    echo " -u is a required option"
-    echo ""
-    exit 1
+      echo ""
+      echo "Usage, simple: give -u <username> {-u <username> ... } <files>"
+      echo " -u is a required option"
+      echo "    Can be used multiple times to give the <files> to up to $userlimit users."
+      echo ""
+      echo ""
+      echo "Usage, verbose: give {-q -b -m \"<message>\"} -u <username> {-u <username> ... } <files>"
+      echo " -q, -m and -b are optional flags"
+      echo ""
+      echo " -q: Quiet mode. Will not send an email to the recipient. Cannot be used with -m."
+      echo " -m: Message. Will add a message to the give email. Use '\n' to start a new line. Cannot be used with -q."
+      echo " -b: Batch mode. Automatically appends time/date stamp to files with the same name as any previous, unretrieved give."
+      echo "       Without -b: Will query overwrite or abort."
+      echo ""
+      exit 1
 fi
 
-# Check For Valid User
-# Note: if user = temp, the input user 
-# was a numerical UID, not a NERSC username.
-temp=`/usr/bin/id -u "$user" 2>&1`
-if [ $? -ne 0 ] || [ "$user" == "$temp" ] ; then
-  echo "$user" does not exist
+# Check for both message and quiet flag.
+# Obviously won't do what the user thinks, so exit.
+if [ "$quietflag" == "true" ] && [ "$messageflag" == "true" ]
+then
+  echo ""
+  echo "    Cannot send a message in quiet mode."
+  echo "    Please choose one of -q and -m and try again."
+  echo ""
   exit 1
 fi
+
+# Check userlist for valid users & unique names
+# Storage of results jump to tempuserlist and back
+#   for speed purposes.
+
+# Check For Valid Users
+# Note: if user = temp, the input user
+# was a numerical UID, not a NERSC username.
+for user in "${userlist[@]}"
+do
+   temp=`/usr/bin/id -u "$user" 2>&1`
+   if [ $? -ne 0 ] || [ "$user" == "$temp" ]
+   then
+     echo "    username "$user" does not exist. "$user" will be ignored."
+   else
+     tempuserlist+=("$user") 
+   fi
+done
+
+# Check if all usernames were invalid. 
+if [ ${#tempuserlist[@]} -eq 0 ] 
+then
+      echo ""
+      echo "    No valid usernames given."
+      echo ""
+      exit 1
+fi
+
+# Identify unique list of users
+# Save unique list back to userList
+userlist=($(echo ${tempuserlist[@]} | /usr/bin/sed "s/\s/\n/g" | /usr/bin/sort | /usr/bin/uniq ))
+
+# Enact the user limit
+if [ ${#userlist[@]} -gt $userlimit ]
+then
+      echo ""
+      echo "    Number of users per give command is limited to $userlimit."
+      echo ""
+      exit 1
+fi
+
+# Output check for userlist testing
+#echo " -------- "
+#for user in "${userlist[@]}"
+#do
+#   echo $user
+#done
+#echo " -------- "
+#exit 1
 
 shift $(( OPTIND-1 ))
 
@@ -98,6 +183,8 @@ then
 
 # Make sure the giveandtake directory is created
 # and set perms on giver/receiver gt directory here.
+  for user in "${userlist[@]}"
+  do
 
   /bin/mkdir -p "$SPOOLAREA/$giver/$user"
   /usr/bin/setfacl -R -d -m u:$user:rwx,g::---,m::rwx "$SPOOLAREA/$giver/$user"
@@ -270,34 +357,46 @@ then
         echo " "
       fi
     fi
-
   done  
+  done
 
-  if [ -z "$messagebody" ]
-  then
-    echo "No files given"
-  else
-    messagebody="Shared Files: $messagebody"
-    messagebody="$messagebody \n\n Retrieve individual files using the take command and providing $giver as the username (-u) argument."
-    # For security we no longer suggests users cut and paste from email
-    #messagebody="$messagebody \n\n % take -u $giver <filename>"
-    #messagebody="$messagebody \n\n Retrieve all files given by $giver using:"
-    #messagebody="$messagebody \n\n % take -u $giver -a"
+  # Email user if not in quiet mode
+  if [ "$quietflag" == "false" ]; then
 
-# Email user
+    for user in "${userlist[@]}"
+    do
 
-# EMAIL subject
-    SUBJECT="$giver has given you a file at NERSC."
-# Email To ?
-    EMAIL="$user@nersc.gov"
-# Email From ?
-    FROM="$giver@nersc.gov"
-# send an email using /bin/mail
-    if [ "$myhost" == "datatran" ]; then
-      echo -e "$messagebody" | $mymail -r "$FROM" -s "$SUBJECT" "$EMAIL"
+    if [ -z "$messagebody" ]
+    then
+      echo "No files given"
     else
-      echo -e "$messagebody" | $mymail -s "$SUBJECT" "$EMAIL" -- -f "$FROM"
+      messagebody="Shared Files: $messagebody"
+      messagebody="$messagebody \n\n Retrieve individual files using the take command and providing $giver as the username (-u) argument."
+      # If user gave message, attach to end of email after instructions for take command.
+      if [ "$messageflag" == "true" ]; then
+         messagebody="$emailmessage \n\n $messagebody"
+      fi
+      # For security we no longer suggests users cut and paste from email
+      #messagebody="$messagebody \n\n % take -u $giver <filename>"
+      #messagebody="$messagebody \n\n Retrieve all files given by $giver using:"
+      #messagebody="$messagebody \n\n % take -u $giver -a"
+
+  # Email user
+
+  # EMAIL subject
+      SUBJECT="$giver has given you a file at NERSC."
+  # Email To ?
+      EMAIL="$user@nersc.gov"
+  # Email From ?
+      FROM="$giver@nersc.gov"
+  # send an email using /bin/mail
+      if [ "$myhost" == "datatran" ]; then
+        echo -e "$messagebody" | $mymail -r "$FROM" -s "$SUBJECT" "$EMAIL"
+      else
+        echo -e "$messagebody" | $mymail -s "$SUBJECT" "$EMAIL" -- -f "$FROM"
+      fi
     fi
+    done
   fi
 
 else
