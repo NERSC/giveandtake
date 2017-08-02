@@ -83,8 +83,9 @@ then
 fi
 
 # Check For Valid User
-temp=`/usr/bin/id "$user" 2>&1`
-if [ $? -ne 0 ]; then
+# Does not accept UID# as a valid name.
+temp=`/usr/bin/id -u "$user" 2>&1`
+if [ $? -ne 0 ] || [ "$user" == "$temp" ]
   echo "$user" does not exist
   exit 1
 fi
