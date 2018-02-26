@@ -1,7 +1,7 @@
 #!/bin/bash -i
 
-# Give is a command to share files with other users. It requires a spool area.
-#
+## Give is a command to share files with other users. It requires a spool area.
+##
 
 # Administrative variables: userlimit per give and permissions group blacklist
 userlimit=5
