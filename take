@@ -133,7 +133,7 @@ else
       cd "$destfolder"
       for var in "$SPOOLAREA/$giver/$user/"*
       do
-        owner=`/usr/bin/stat -c %U $var`
+        owner=`/usr/bin/stat -c %U "$var"`
         if [ "$owner" != "$giver" -a "$giver" != "ftpup" ] 
         then
           echo "Owner of $var, $owner, does not match $giver. Something nasty could be going on!"
