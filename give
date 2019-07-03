@@ -372,7 +372,11 @@ then
       echo "No files given"
     else
       messagebody="Shared Files: $messagebody"
-      messagebody="$messagebody \n\n Retrieve individual files using the take command and providing $giver as the username (-u) argument."
+      messagebody="$messagebody \n\nRetrieve individual files using the take command, eg:"
+      messagebody="$messagebody   \n  take -u <giver> <filename>"
+      messagebody="$messagebody \n\nRetrieve all files given by a giver like:"
+      messagebody="$messagebody   \n  take -u <giver> -a"
+      messagebody="$messagebody \n\nGiven files will expire after 12 weeks"
       # If user gave message, attach to end of email after instructions for take command.
       if [ "$messageflag" == "true" ]; then
          messagebody="$emailmessage \n\n $messagebody"
