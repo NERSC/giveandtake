@@ -1,5 +1,8 @@
 #!/bin/bash -i
 
+# Enable globbing of dot files, otherwise du below fails if dot files are give'n.
+shopt -s dotglob
+
 #echo "Give and Take is migrating due to Global Scratch Retirement. We'll be back soon"
 #exit 1
 
