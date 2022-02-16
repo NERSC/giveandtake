@@ -29,24 +29,22 @@ batchflag="no"
 
 # Implementation Definitions
 #SPOOLAREA=/global/scratch2/gt
-SPOOLAREA=/project/projectdirs/gt
+SPOOLAREA=/global/cfs/cdirs/gt
 
 # Get Giver's Name
 giver=`/usr/bin/whoami`
 
 # Get Hostname
-myhost=`/usr/common/usg/bin/nersc_host`
+if [ -z "$NERSC_HOST" ]; then
+    myhost=`/usr/common/usg/bin/nersc_host`
+else
+    myhost=$NERSC_HOST
+fi
 #echo $myhost
 
-if [ "$myhost" == "genepool" ]; then
-  myreadlink="/bin/readlink"
-  mylogger="/usr/bin/logger"
-  mymail="/usr/bin/mail"
-else
-  myreadlink="/usr/bin/readlink"
-  mylogger="/bin/logger"
-  mymail="/bin/mail"
-fi
+myreadlink="/usr/bin/readlink"
+mylogger="/bin/logger"
+mymail="/bin/mail"
 
 # Make sure scratch is available and giver has directory
 if [ ! -d "$SPOOLAREA/$giver" ]; then
